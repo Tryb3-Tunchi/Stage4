@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Page Summarizer</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- ── Header ────────────────────────────────────── -->
+      <header class="header">
+        <div class="header-brand">
+          <div class="brand-icon" aria-hidden="true">✦</div>
+          <span class="brand-name">AI Summarizer</span>
+        </div>
+        <button
+          class="icon-btn"
+          id="themeBtn"
+          aria-label="Toggle dark mode"
+          title="Toggle dark mode"
+        >
+          🌙
+        </button>
+      </header>
+
+      <!-- ── Page info ─────────────────────────────────── -->
+      <div class="page-info">
+        <p class="page-title" id="pageTitle" title="">Loading…</p>
+        <p class="page-url" id="pageUrl" title=""></p>
+      </div>
+
+      <!-- ── Action bar ────────────────────────────────── -->
+      <div class="action-bar">
+        <button class="btn btn-primary" id="summarizeBtn">
+          <span aria-hidden="true">⚡</span> Summarize Page
+        </button>
+        <button class="btn btn-ghost" id="clearBtn" aria-label="Clear summary">
+          Clear
+        </button>
+      </div>
+
+      <!-- ── Loading ───────────────────────────────────── -->
+      <div
+        class="state-panel hidden"
+        id="loading"
+        role="status"
+        aria-live="polite"
+      >
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="state-label">Analysing page content…</p>
+      </div>
+
+      <!-- ── Error ─────────────────────────────────────── -->
+      <div
+        class="state-panel error-panel hidden"
+        id="error"
+        role="alert"
+        aria-live="assertive"
+      >
+        <span class="state-icon" aria-hidden="true">⚠</span>
+        <p class="state-label" id="errorText"></p>
+        <button class="btn btn-ghost btn-sm" id="retryBtn">Try Again</button>
+      </div>
+
+      <!-- ── Summary ───────────────────────────────────── -->
+      <div class="summary hidden" id="summary">
+        <!-- One-liner -->
+        <div class="one-liner" id="oneLiner"></div>
+
+        <!-- Meta chips -->
+        <div class="meta-row">
+          <span class="chip">
+            <span aria-hidden="true">⏱</span>
+            <span id="readingTime">—</span>
+          </span>
+          <span class="chip">
+            <span aria-hidden="true">📄</span>
+            <span id="wordCount">—</span>
+          </span>
+          <button
+            class="chip chip-btn"
+            id="copyBtn"
+            aria-label="Copy summary to clipboard"
+          >
+            <span aria-hidden="true">📋</span> Copy
+          </button>
+        </div>
+
+        <!-- Key points -->
+        <section aria-label="Key points">
+          <h2 class="section-heading">
+            <span aria-hidden="true">◆</span> Key Points
+          </h2>
+          <ul class="bullet-list" id="bulletList"></ul>
+        </section>
+
+        <!-- Insights -->
+        <section aria-label="Key insights">
+          <h2 class="section-heading">
+            <span aria-hidden="true">💡</span> Insights
+          </h2>
+          <ul class="insight-list" id="insightList"></ul>
+        </section>
+
+        <p class="cache-note hidden" id="cacheNote">⚡ Loaded from cache</p>
+      </div>
+
+      <!-- ── Empty state ────────────────────────────────── -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon" aria-hidden="true">✦</div>
+        <p class="empty-title">Ready to summarize</p>
+        <p class="empty-sub">
+          Click the button above to get an AI summary of the current page.
+        </p>
+      </div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

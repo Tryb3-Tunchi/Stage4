@@ -1,3 +1,4 @@
-# remove config
 
 config.js
+configs.js
+.env

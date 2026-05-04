@@ -1,26 +1,44 @@
-// ai.js — AI provider module
-// Only this file calls the external AI API.
-// To swap providers for Stage 4b: edit only this file.
-
+// ai.js — AI provider module (Gemini Free Tier)
 import { GEMINI_API_KEY } from "./config.js";
 
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// Use Gemma 4 26B — FREE: 1,500 requests/day, actually works
+const MODEL = "gemma-4-26b-a4b-it";
 
-// ── Main entry point called by background.js ─────────
+// ── Main entry point ─────────────────────────────────
 export async function summarizePage({ title, content }) {
-  const trimmed = content.slice(0, 12000);
-  const prompt = buildPrompt(title, trimmed);
-  const raw = await callGemini(prompt);
-  return parseResponse(raw);
+  try {
+    const trimmed = content.slice(0, 10000);
+    const prompt = buildPrompt(title, trimmed);
+    const raw = await callGemini(prompt);
+    return parseResponse(raw);
+  } catch (error) {
+    console.error("Summarize error:", error);
+    return {
+      oneLiner: "Error generating summary",
+      bullets: [error.message],
+      insights: ["Check API key or network connection"],
+      readingTime: "—",
+      wordCount: 0,
+    };
+  }
 }
 
-// ── Gemini API call ───────────────────────────────────
+// ── Gemini API call (FIXED) ─────────────────────────
 async function callGemini(prompt) {
-  const res = await fetch(GEMINI_URL, {
+  // CORRECT URL format
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+  const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: [
+        {
+          parts: [{ text: prompt }],
+        },
+      ],
       generationConfig: {
         temperature: 0.3,
         maxOutputTokens: 1024,
@@ -28,66 +46,85 @@ async function callGemini(prompt) {
     }),
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `Gemini API error ${res.status}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Gemini API error:", response.status, errorText);
+    throw new Error(`Gemini API error: ${response.status}`);
   }
 
-  const data = await res.json();
+  const data = await response.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini returned an empty response.");
+
+  if (!text) {
+    throw new Error("Gemini returned an empty response");
+  }
+
   return text;
 }
 
-// ── Prompt ────────────────────────────────────────────
+// ── Prompt that forces JSON output ───────────────────
 function buildPrompt(title, content) {
-  return `You are a precise webpage summarizer. Analyze the content below and respond ONLY with valid JSON — no markdown, no code fences, just raw JSON.
+  return `.
 
-PAGE TITLE: ${title}
+Summarize this webpage as JSON using this EXACT structure:
 
-CONTENT:
-${content}
-
-Return exactly this JSON shape:
 {
-  "oneLiner": "One sentence, max 20 words",
-  "bullets": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-  "insights": ["insight 1", "insight 2", "insight 3"],
-  "readingTime": "X min read",
-  "wordCount": 1234
+    "oneLiner": "one sentence summary under 20 words",
+    "bullets": ["key point 1", "key point 2", "key point 3", "key point 4"],
+    "insights": ["insight 1", "insight 2"],
+    "readingTime": "2 min read",
+    "wordCount": 500
 }
 
-Rules:
-- bullets: 4–6 key points extracted from the content
-- insights: 2–3 deeper observations or takeaways
-- readingTime: based on 200 words per minute average
-- wordCount: approximate word count of the original text
-- No text outside the JSON object`;
+Title: ${title}
+
+Content:
+${content.substring(0, 8000)}
+
+Output ONLY the JSON object. Start with { and end with }. Do not include any other text.`;
 }
 
-// ── Parse + validate AI response ──────────────────────
+// ── Parse JSON response ──────────────────────────────
 function parseResponse(raw) {
-  const cleaned = raw
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
   try {
+    // Clean up common issues
+    let cleaned = raw.trim();
+
+    // Remove markdown code blocks
+    cleaned = cleaned.replace(/^```json\s*/i, "");
+    cleaned = cleaned.replace(/^```\s*/i, "");
+    cleaned = cleaned.replace(/\s*```$/i, "");
+
+    // Find the JSON object
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleaned = jsonMatch[0];
+    }
+
     const p = JSON.parse(cleaned);
+
     return {
-      oneLiner: typeof p.oneLiner === "string" ? p.oneLiner : "",
-      bullets: Array.isArray(p.bullets) ? p.bullets : [],
-      insights: Array.isArray(p.insights) ? p.insights : [],
-      readingTime: typeof p.readingTime === "string" ? p.readingTime : "—",
+      oneLiner: p.oneLiner || "Summary of webpage",
+      bullets: Array.isArray(p.bullets)
+        ? p.bullets.slice(0, 6)
+        : ["Key points extracted"],
+      insights: Array.isArray(p.insights)
+        ? p.insights.slice(0, 3)
+        : ["Insights from content"],
+      readingTime: p.readingTime || "1 min read",
       wordCount: typeof p.wordCount === "number" ? p.wordCount : 0,
     };
-  } catch {
-    // Graceful fallback — return raw as single bullet
+  } catch (e) {
+    console.error("JSON parse failed:", e.message);
+    console.error("Raw response:", raw.substring(0, 500));
+
     return {
-      oneLiner: "",
-      bullets: [raw.slice(0, 300)],
-      insights: [],
+      oneLiner: "Summary parsing failed",
+      bullets: [
+        "The AI did not return valid JSON",
+        `Raw: ${raw.substring(0, 100)}...`,
+      ],
+      insights: ["Try again or check API key"],
       readingTime: "—",
       wordCount: 0,
     };
